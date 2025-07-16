@@ -5,6 +5,8 @@ from pathlib import Path
 import uuid
 import os
 
+import whisper
+
 app = FastAPI(title="Ef-El Apis")
 
 UPLOAD_DIR = Path("uploads")
@@ -48,4 +50,32 @@ async def upload_audio(audio_file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    
+@app.post("/upload-audio-and-transcribe")
+async def upload_audio_and_transcribe(audio_file: UploadFile = File(...)):
+    try:
+        # Validate file type
+        if not audio_file.content_type.startswith("audio/"):
+            raise HTTPException(status_code=400, detail="File must be audio")
+        
+        # Generate unique filename
+        file_extension = os.path.splitext(audio_file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = UPLOAD_DIR / unique_filename
+        
+        # Save file
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(audio_file.file, buffer)
+          # Transcribe audio using Whisper
+        model = whisper.load_model("base")
+        result = model.transcribe(str(file_path), language="en")
+
+        # 
+
+        return {
+            "status": "success",
+            "filename": unique_filename,
+            "transcription": result["text"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
