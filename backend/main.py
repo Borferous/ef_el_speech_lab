@@ -10,50 +10,21 @@ import json
 import whisper
 import google.generativeai as genai
 
-# Try to load environment variables from .env file
-import os
-print(f"🔍 Current working directory: {os.getcwd()}")
+# Try to load environment variables from .env file if python-dotenv is available
 try:
     from dotenv import load_dotenv
-    # Try multiple possible paths for the .env file
-    possible_paths = [".env", "../.env", "../../.env", "backend/.env"]
-    env_loaded = False
-    
-    for path in possible_paths:
-        try:
-            load_dotenv(dotenv_path=path)
-            if os.path.exists(path):
-                print(f"✅ Loaded .env using dotenv from: {Path(path).absolute()}")
-                env_loaded = True
-                break
-        except:
-            continue
-    
-    if not env_loaded:
-        print("⚠️ Could not load .env with dotenv")
-        
+    load_dotenv(dotenv_path=".env")
 except ImportError:
-    print("📦 dotenv not available, trying manual .env reading")
-    
-# If dotenv is not available or didn't work, try to read .env file manually
-possible_paths = [".env", "../.env", "../../.env", "backend/.env"]
-for env_path_str in possible_paths:
-    env_path = Path(env_path_str)
-    print(f"🔍 Checking for .env file at: {env_path.absolute()}")
+    # If dotenv is not available, try to read .env file manually
+    env_path = Path(".env")
     if env_path.exists():
-        print(f"✅ Found .env file at: {env_path.absolute()}")
         with open(env_path) as f:
             for line in f:
                 if line.strip() and not line.startswith('#'):
-                    if '=' in line:
-                        key, value = line.strip().split('=', 1)
-                        # Remove quotes if present
-                        value = value.strip('"').strip("'")
-                        os.environ[key] = value
-                        print(f"✅ Set {key} = {value[:10]}...")
-        break
-else:
-    print("❌ .env file not found in any expected location")
+                    key, value = line.strip().split('=', 1)
+                    # Remove quotes if present
+                    value = value.strip('"').strip("'")
+                    os.environ[key] = value
 
 app = FastAPI(title="Ef-El Apis")
 
@@ -65,9 +36,6 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    print(f"✅ Gemini API configured with key: {GEMINI_API_KEY[:10]}...")
-else:
-    print("⚠️  No Gemini API key found")
 
 # Pydantic models for request/response
 class AnalysisRequest(BaseModel):
@@ -80,35 +48,15 @@ class PromptRequest(BaseModel):
 # Allow frontend origin during development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Both localhost and 127.0.0.1
+    allow_origins=["http://localhost:3000"],  # Adjust if needed
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.get("/")
 def read_root():
-    return {
-        "message": "Ef-El Speech Lab API is running",
-        "version": "1.0.0",
-        "endpoints": {
-            "upload_audio": "/upload-audio",
-            "transcribe": "/upload-audio-and-transcribe",
-            "analyze": "/analyze-speech",
-            "upload_and_analyze": "/upload-and-analyze",
-            "generate_text": "/generate_text"
-        },
-        "gemini_configured": bool(GEMINI_API_KEY),
-        "whisper_available": True
-    }
-
-@app.get("/health")
-def health_check():
-    return {
-        "status": "healthy",
-        "gemini_api": "configured" if GEMINI_API_KEY else "not_configured",
-        "whisper": "available"
-    }
+    return {"message": "Hello from FastAPI"}
 
 @app.post("/upload-audio")
 async def upload_audio(audio_file: UploadFile = File(...)):
@@ -275,15 +223,9 @@ async def upload_and_analyze(audio_file: UploadFile = File(...), original_text: 
             shutil.copyfileobj(audio_file.file, buffer)
         
         # Transcribe audio using Whisper
-        try:
-            model = whisper.load_model("base")
-            result = model.transcribe(str(file_path), language="en")
-            transcribed_text = result["text"]
-        except Exception as whisper_error:
-            # Clean up the uploaded file if transcription fails
-            if file_path.exists():
-                file_path.unlink()
-            raise HTTPException(status_code=500, detail=f"Transcription failed: {str(whisper_error)}")
+        model = whisper.load_model("base")
+        result = model.transcribe(str(file_path), language="en")
+        transcribed_text = result["text"]
         
         # Analyze speech if original text is provided and Gemini is configured
         analysis = None
