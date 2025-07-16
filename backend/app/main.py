@@ -276,7 +276,7 @@ async def upload_and_analyze(audio_file: UploadFile = File(...), original_text: 
         
         # Transcribe audio using Whisper
         try:
-            model = whisper.load_model("base")
+            model = whisper.load_model("small")
             result = model.transcribe(str(file_path), language="en")
             transcribed_text = result["text"]
         except Exception as whisper_error:

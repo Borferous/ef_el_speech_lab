@@ -120,12 +120,53 @@ const AudioRecorder = () => {
 
   // Simple frontend analysis function as fallback
   const createSimpleAnalysis = (original: string, transcribed: string) => {
-    const originalWords = original.toLowerCase().split(' ')
-    const transcribedWords = transcribed.toLowerCase().split(' ')
+    // Clean and normalize the texts
+    const cleanOriginal = original.toLowerCase().trim().replace(/[^\w\s]/g, '')
+    const cleanTranscribed = transcribed.toLowerCase().trim().replace(/[^\w\s]/g, '')
     
-    const correctWords = originalWords.filter(word => 
-      transcribedWords.includes(word)
-    ).length
+    const originalWords = cleanOriginal.split(/\s+/).filter(word => word.length > 0)
+    const transcribedWords = cleanTranscribed.split(/\s+/).filter(word => word.length > 0)
+    
+    // Calculate word-level accuracy
+    let correctWords = 0
+    const missingWords = []
+    const incorrectWords = []
+    
+    // Compare word by word (considering position)
+    const maxLength = Math.max(originalWords.length, transcribedWords.length)
+    for (let i = 0; i < originalWords.length; i++) {
+      const originalWord = originalWords[i]
+      const transcribedWord = transcribedWords[i]
+      
+      if (transcribedWord && originalWord === transcribedWord) {
+        correctWords++
+      } else if (!transcribedWord) {
+        missingWords.push(originalWord)
+      } else if (originalWord !== transcribedWord) {
+        incorrectWords.push({
+          original: originalWord,
+          transcribed: transcribedWord
+        })
+      }
+    }
+    
+    // Also check for exact match
+    const isExactMatch = cleanOriginal === cleanTranscribed
+    
+    // If it's an exact match or very close, give perfect scores
+    if (isExactMatch || correctWords === originalWords.length) {
+      return {
+        accuracy_score: 100,
+        fluency_score: 100,
+        overall_score: 100,
+        word_accuracy: 100,
+        missing_words: [],
+        incorrect_words: [],
+        strengths: ["Perfect pronunciation!", "Excellent clarity", "All words correctly spoken"],
+        areas_for_improvement: [],
+        detailed_feedback: "Excellent work! You pronounced all words correctly with perfect clarity."
+      }
+    }
     
     const accuracy = Math.round((correctWords / originalWords.length) * 100)
     
@@ -134,11 +175,11 @@ const AudioRecorder = () => {
       fluency_score: accuracy > 80 ? 85 : accuracy > 60 ? 70 : 50,
       overall_score: accuracy,
       word_accuracy: accuracy,
-      missing_words: originalWords.filter(word => !transcribedWords.includes(word)),
-      incorrect_words: [],
-      strengths: accuracy > 80 ? ["Good pronunciation"] : [],
-      areas_for_improvement: accuracy < 80 ? ["Practice pronunciation", "Speak more clearly"] : [],
-      detailed_feedback: `You achieved ${accuracy}% accuracy. ${accuracy > 80 ? 'Great job!' : 'Keep practicing!'}`
+      missing_words: missingWords,
+      incorrect_words: incorrectWords,
+      strengths: accuracy > 80 ? ["Good pronunciation"] : accuracy > 60 ? ["Clear speech"] : [],
+      areas_for_improvement: accuracy < 100 ? ["Practice pronunciation", "Speak more clearly"] : [],
+      detailed_feedback: `You achieved ${accuracy}% accuracy. ${accuracy >= 90 ? 'Excellent work!' : accuracy >= 70 ? 'Good job, keep practicing!' : 'Keep practicing to improve your pronunciation!'}`
     }
   }
 
