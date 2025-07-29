@@ -223,7 +223,7 @@ async def upload_and_analyze(audio_file: UploadFile = File(...), original_text: 
             shutil.copyfileobj(audio_file.file, buffer)
         
         # Transcribe audio using Whisper
-        model = whisper.load_model("base")
+        model = whisper.load_model("small")
         result = model.transcribe(str(file_path), language="en")
         transcribed_text = result["text"]
         
